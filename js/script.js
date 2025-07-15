@@ -57,14 +57,15 @@ function getShapeEdgeIndices(shape) {
 
 function degToRad(deg) { return deg * Math.PI / 180; }
 
-function getRotationMatrix(angleX, angleY) {
+function getRotationMatrix(angleX, angleY, angleZ) {
     const cx = Math.cos(angleX), sx = Math.sin(angleX);
     const cy = Math.cos(angleY), sy = Math.sin(angleY);
-    // Y rotation
-    const rotY = [
-        cy, 0, sy,
-        0, 1, 0,
-        -sy, 0, cy
+    const cz = Math.cos(angleZ), sz = Math.sin(angleZ);
+    // Z rotation
+    const rotZ = [
+        cz, -sz, 0,
+        sz, cz, 0,
+        0, 0, 1
     ];
     // X rotation
     const rotX = [
@@ -72,13 +73,27 @@ function getRotationMatrix(angleX, angleY) {
         0, cx, -sx,
         0, sx, cx
     ];
-    // Multiply rotY * rotX (3x3)
+    // Y rotation
+    const rotY = [
+        cy, 0, sy,
+        0, 1, 0,
+        -sy, 0, cy
+    ];
+    // Multiply rotY * rotX * rotZ (3x3)
+    let m = rotZ;
+    m = multiplyMat3(rotX, m);
+    m = multiplyMat3(rotY, m);
+    return m;
+}
+
+function multiplyMat3(a, b) {
+    // Multiplies two 3x3 matrices
     const m = [];
     for (let r = 0; r < 3; ++r) {
         for (let c = 0; c < 3; ++c) {
             m[3*r+c] = 0;
             for (let k = 0; k < 3; ++k) {
-                m[3*r+c] += rotY[3*r+k] * rotX[3*k+c];
+                m[3*r+c] += a[3*r+k] * b[3*k+c];
             }
         }
     }
@@ -109,28 +124,35 @@ function ortho(left, right, bottom, top, near, far) {
     ]);
 }
 
-const cameraControls = new CameraControls(canvas)
+function lookAt(eye, target, up) {
+    // Returns a 4x4 view matrix (column-major)
+    const z = eye.subtract(target).normalize(); // forward
+    const x = up.cross(z).normalize(); // right
+    const y = z.cross(x).normalize(); // up
+    return new Float32Array([
+        x.x, y.x, z.x, 0,
+        x.y, y.y, z.y, 0,
+        x.z, y.z, z.z, 0,
+        -x.dot(eye), -y.dot(eye), -z.dot(eye), 1
+    ]);
+}
+
+const cameraControls = new CameraControls(canvas, new Vector3(0, 0, 0));
 
 function drawScene() {
-    // Use current camera angles
-    const cameraAngles = cameraControls.getAngles();
-    console.log(cameraAngles)
-
-    const angleX = degToRad(cameraAngles.x);
-    const angleY = degToRad(cameraAngles.y);
-    const rotMat = getRotationMatrix(angleX, angleY);
+    // Get camera transform (position, target, up, zoom)
+    const cam = cameraControls.getCameraTransform();
+    const view = lookAt(cam.position, cam.target, cam.up);
     let allVerts = [];
     for (const shape of shapes) {
         const corners = shape.getCorners();
         const edgeIndices = getShapeEdgeIndices(shape);
         for (const [i, j] of edgeIndices) {
-            let v0 = corners[i].toArray();
-            let v1 = corners[j].toArray();
-            v0 = applyMat3(v0, rotMat);
-            v1 = applyMat3(v1, rotMat);
-            // Move the scene forward along z so the whole sphere is visible
-            v0[2] += 4;
-            v1[2] += 4;
+            let v0 = corners[i];
+            let v1 = corners[j];
+            // Transform to camera space
+            v0 = applyMat4(v0, view);
+            v1 = applyMat4(v1, view);
             allVerts.push(...v0, ...v1);
         }
     }
@@ -143,12 +165,24 @@ function drawScene() {
     gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
     // Set projection matrix uniform every frame
     const aspect = canvas.width / canvas.height;
-    const proj = ortho(-2 * aspect, 2 * aspect, -2, 2, -10, 10);
+    const baseOrthoSize = 2;
+    const orthoSize = baseOrthoSize * cam.zoom;
+    const proj = ortho(-orthoSize * aspect, orthoSize * aspect, -orthoSize, orthoSize, -10, 10);
     const uProjection = gl.getUniformLocation(program, "uProjection");
     gl.uniformMatrix4fv(uProjection, false, proj);
     gl.clearColor(0.1, 0.1, 0.1, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(drawMode, 0, bufferData.length / 3);
+}
+
+function applyMat4(v, m) {
+    // v: Vector3, m: Float32Array(16)
+    const x = v.x, y = v.y, z = v.z;
+    return [
+        m[0]*x + m[4]*y + m[8]*z + m[12],
+        m[1]*x + m[5]*y + m[9]*z + m[13],
+        m[2]*x + m[6]*y + m[10]*z + m[14]
+    ];
 }
 
 function animate() {
