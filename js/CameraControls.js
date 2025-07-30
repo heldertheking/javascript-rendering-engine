@@ -8,7 +8,7 @@ export class CameraControls {
         this.distance = distance;
         this.angles = new Vector3(20, -30, 0); // pitch, yaw, roll (degrees)
         this.isRMB = false;
-        this.isMMB = false;
+        this.isLMB = false;
         this.lastMouse = { x: 0, y: 0 };
         this.zoom = 1; // For orthographic zoom
         this._addEventListeners();
@@ -18,8 +18,8 @@ export class CameraControls {
         this.canvas.addEventListener("mousedown", (e) => {
             if (e.button === 2) {
                 this.isRMB = true;
-            } else if (e.button === 1) {
-                this.isMMB = true;
+            } else if (e.button === 0) {
+                this.isLMB = true;
             }
             this.lastMouse.x = e.clientX;
             this.lastMouse.y = e.clientY;
@@ -31,11 +31,12 @@ export class CameraControls {
             if (this.isRMB) {
                 // Orbit: yaw and pitch
                 this.angles.y -= dx * 0.4;
-                this.angles.x -= dy * 0.4;
+                this.angles.x += dy * 0.4;
                 this.angles.x = Math.max(-89, Math.min(89, this.angles.x));
-            } else if (this.isMMB) {
+            } else if (this.isLMB) {
                 // Pan: move target in view plane
                 const panSpeed = this.distance * 0.002;
+                console.log(panSpeed)
                 // Calculate right and up vectors
                 const yawRad = this.angles.y * Math.PI / 180;
                 const up = new Vector3(0, 1, 0);
@@ -50,12 +51,16 @@ export class CameraControls {
 
         this.canvas.addEventListener("mouseup", (e) => {
             if (e.button === 2) this.isRMB = false;
-            if (e.button === 1) this.isMMB = false;
+            if (e.button === 0) this.isLMB = false;
         });
 
         this.canvas.addEventListener("wheel", (e) => {
-            // Ortho Zoom (scale view)
-            this.zoom *= 1 + e.deltaY * 0.1;
+            if (e.deltaY < 0) {
+                this.zoom *= 0.9; // Zoom in
+            } else {
+                this.zoom *= 1.1; // Zoom out
+            }
+
             this.zoom = Math.max(0.1, Math.min(10, this.zoom));
         });
 

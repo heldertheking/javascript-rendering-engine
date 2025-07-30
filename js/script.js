@@ -37,9 +37,9 @@ gl.useProgram(program);
 // Create one of each shape, positioned next to each other
 const spacing = 3;
 const shapes = [
-    new Cube(new Vector3(-spacing, 0, 0), 0, new Vector3(2, 2, 2)),
-    new Pyramid(new Vector3(0, 0, 0), 0, new Vector3(2, 2, 2)),
-    new Sphere(new Vector3(spacing, 0, 0), 1, new Vector3(1, 1, 1), 24)
+    new Cube(new Vector3(0, 0, 0), 0, new Vector3(2, 2, 2))
+//     new Pyramid(new Vector3(0, 0, 0), 0, new Vector3(2, 2, 2)),
+//     new Sphere(new Vector3(spacing, 0, 0), 1, new Vector3(1, 1, 1), 24)
 ];
 
 // Set draw mode (lines)
